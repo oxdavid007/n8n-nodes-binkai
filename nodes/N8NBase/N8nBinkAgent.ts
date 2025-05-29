@@ -18,7 +18,7 @@ import { BaseChatMemory } from '@langchain/community/memory/chat_memory';
 import { N8nOutputParser } from '../../utils/output_parsers/N8nOutputParser';
 import { getAgentTracingConfig } from '../../utils/tracing';
 import { PlanAndExecuteAgentExecutor } from 'langchain/experimental/plan_and_execute';
-import { ToolName } from '../../utils/toolName';
+import { AgentType, ToolName } from '../../utils/toolName';
 
 export class N8nBinkAgent extends BaseAgent {
 	private model: IModel;
@@ -27,14 +27,14 @@ export class N8nBinkAgent extends BaseAgent {
 	private networks: NetworksConfig['networks'];
 	private config: AgentConfig;
 	private memory: BaseChatMemory;
-	private outputParser: N8nOutputParser;
+	private outputParser: N8nOutputParser | undefined;
 	private n8nOptions: any;
 	constructor(
 		model: IModel,
 		typeAgent: string,
 		memory: BaseChatMemory,
 		tools: any[],
-		outputParser: N8nOutputParser,
+		outputParser: N8nOutputParser | undefined,
 		config: AgentConfig,
 		wallet: IWallet,
 		networks: NetworksConfig['networks'],
@@ -80,11 +80,23 @@ export class N8nBinkAgent extends BaseAgent {
 				tool.name !== ToolName.WALLET_TOOL,
 		);
 
+		if (this.memory && this.memory.chatHistory) {
+			const messages = await this.memory.chatHistory.getMessages();
+			const validMessages = messages.filter(
+				(msg: any) => msg.content && msg.content.trim() !== ''
+			);
+			if (validMessages.length !== messages.length) {
+				await this.memory.chatHistory.clear();
+				await this.memory.chatHistory.addMessages(validMessages);
+			}
+		}
+
 		const agent = await createOpenAIToolsAgent({
 			llm: this.getModel().getLangChainLLM(),
 			tools: filteredTools,
 			prompt: ChatPromptTemplate.fromMessages([
 				['system', `${this.config.systemPrompt ?? defaultSystemPrompt}`],
+				new MessagesPlaceholder('chat_history'),
 				['human', '{input}'],
 				new MessagesPlaceholder('agent_scratchpad'),
 			]),
@@ -100,6 +112,8 @@ export class N8nBinkAgent extends BaseAgent {
 			agent: runnableAgent,
 			memory: this.memory,
 			tools: filteredTools,
+			returnIntermediateSteps: this.n8nOptions.returnIntermediateSteps === true,
+			maxIterations: this.n8nOptions.maxIterations,
 		});
 	}
 
@@ -130,18 +144,18 @@ export class N8nBinkAgent extends BaseAgent {
 
 	public async execute(
 		command: string | AgentExecuteParams,
-		onStream?: (data: string) => void,
+		chat_history?: any,
 	): Promise<any> {
 		let executor;
 		let response;
-		if (this.typeAgent === 'ToolsAgent') {
-			executor = await this.createToolsAgentExecutor();
-			response = await executor.invoke({ input: command, outputParser: this.outputParser });
-		} else if (this.typeAgent === 'PlanningAgent') {
+		if (this.typeAgent === AgentType.PLANNING_AGENT) {
 			executor = await this.createPlanningAgentExecutor();
 			response = await executor
 				.withConfig(getAgentTracingConfig(this))
-				.invoke({ input: command, outputParser: this.outputParser });
+				.invoke({ input: command, chat_history: chat_history });
+		} else {
+			executor = await this.createToolsAgentExecutor();
+			response = await executor.invoke({ input: command, chat_history: chat_history });
 		}
 		return response;
 	}

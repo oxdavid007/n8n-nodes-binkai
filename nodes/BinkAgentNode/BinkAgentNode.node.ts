@@ -3,12 +3,12 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeConnectionType,
 	INodeInputConfiguration,
 	INodeInputFilter,
 	INodeProperties,
 	NodeOperationError,
 	jsonParse,
+	NodeConnectionType,
 } from 'n8n-workflow';
 import { textInput } from '../../utils/descriptions';
 import {
@@ -17,25 +17,13 @@ import {
 } from '../../utils/output_parsers/N8nOutputParser';
 import { getPromptInputByType } from '../../utils/helpers';
 import { getChatModel, getOptionalMemory, getTools } from '../../utils/common';
-import { ToolName } from '../../utils/toolName';
 import type { BaseChatMemory } from '@langchain/community/memory/chat_memory';
-import { Wallet, Network, NetworksConfig, NetworkType } from '@binkai/core';
-import { ethers } from 'ethers';
-import { SwapPlugin } from '@binkai/swap-plugin';
-import { TokenPlugin } from '@binkai/token-plugin';
-import { WalletPlugin } from '@binkai/wallet-plugin';
-import { JupiterProvider } from '@binkai/jupiter-provider';
-import { KyberProvider } from '@binkai/kyber-provider';
-import { AlchemyProvider } from '@binkai/alchemy-provider';
+import { Wallet, Network } from '@binkai/core';
 import { N8nLLM } from '../N8NBase/N8nLLM';
 import { omit } from 'lodash';
 import { N8nBinkAgent } from '../N8NBase/N8nBinkAgent';
-import { DynamicStructuredTool } from '@langchain/core/tools';
-import { deBridgeProvider } from '@binkai/debridge-provider';
-import { Connection } from '@solana/web3.js';
-import { BridgePlugin } from '@binkai/bridge-plugin';
+import { DynamicStructuredTool, Tool } from '@langchain/core/tools';
 // import { TransferPlugin } from '@binkai/transfer-plugin';
-import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { SYSTEM_MESSAGE } from '../../utils/prompt';
 import { planAndExecuteAgentProperties } from '../../utils/descriptions';
 import { getNetworksConfig } from '../../utils/networks';
@@ -149,6 +137,12 @@ const agentTypeProperty: INodeProperties = {
 			value: 'toolsAgent',
 			description:
 				'Utilizes structured tool schemas for precise and reliable tool selection and execution. Recommended for complex tasks requiring accurate and consistent tool usage, but only usable with models that support tool calling.',
+		},
+		{
+			name: 'Plan and Execute Agent',
+			value: 'planAndExecuteAgent',
+			description:
+				'Utilizes a plan and execute approach to solve complex tasks. Recommended for tasks that require a structured approach to problem solving.',
 		},
 	],
 	default: 'toolsAgent',
@@ -275,13 +269,7 @@ export class BinkAgentNode implements INodeType {
 					},
 				},
 			},
-			// {
-			// 	displayName: 'Plugins',
-			// 	name: 'plugins',
-			// 	type: 'multiOptions',
-			// 	default: 'auto',
-			// 	options: pluginsTypeProperties.options,
-			// },
+			
 			...[promptTypeOptions],
 			// ...[textFromPreviousNode],
 			...[textInput],
@@ -294,6 +282,10 @@ export class BinkAgentNode implements INodeType {
 				name: 'binkaiCredentialsApi',
 				required: true,
 			},
+			{
+				name: 'binkWalletCredentials',
+				required: true,
+			},
 		],
 	};
 
@@ -302,94 +294,29 @@ export class BinkAgentNode implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const items = this.getInputData();
 		const outputParser = (await getOptionalOutputParser(this)) as N8nOutputParser;
-		const tools = (await getTools(this, outputParser)) as DynamicStructuredTool[];
-
+		const toolsWithPlugins = (await getTools(this)) as Array<{ tool: DynamicStructuredTool | Tool, plugin?: any }>;
 		// Get credentials
-		const credentials = await this.getCredentials('binkaiCredentialsApi');
-
+		const baseCredentials = await this.getCredentials('binkaiCredentialsApi');
+		const walletCredentials = await this.getCredentials('binkWalletCredentials');
 		// Get RPC URLs from credentials
 		const RPC_URLS = {
-			BNB: credentials.bnbRpcUrl as string,
-			ETH: credentials.ethRpcUrl as string,
-			SOL: credentials.solRpcUrl as string,
+			BNB: baseCredentials.bnbRpcUrl as string,
+			ETH: baseCredentials.ethRpcUrl as string,
+			SOL: baseCredentials.solRpcUrl as string,
 		};
-
-		const birdeyeApiKey = credentials.birdeyeApiKey as string;
-		const alchemyApiKey = credentials.alchemyApiKey as string;
-
-		// Initialize providers
-		const birdeyeProvider = new BirdeyeProvider({ apiKey: birdeyeApiKey });
-		const alchemyProvider = new AlchemyProvider({ apiKey: alchemyApiKey });
-		const bscProvider = new ethers.JsonRpcProvider(RPC_URLS.BNB);
-		const solanaProvider = new Connection(RPC_URLS.SOL);
-
-		// Initialize plugins map
-		const pluginMap = new Map();
-
-		// Initialize plugins based on available tools
-		for (const tool of tools) {
-			try {
-				switch (tool.name) {
-					case ToolName.SWAP_TOOL:
-						if (!pluginMap.has('swap')) {
-							const kyber = new KyberProvider(bscProvider, 56);
-							const jupiter = new JupiterProvider(solanaProvider);
-							const swapPlugin = new SwapPlugin();
-							await swapPlugin.initialize({
-								defaultSlippage: 0.5,
-								defaultChain: 'bnb',
-								providers: [kyber, jupiter],
-								supportedChains: ['bnb', 'ethereum', 'solana'],
-							});
-							pluginMap.set('swap', swapPlugin);
-						}
-						break;
-
-					case ToolName.BRIDGE_TOOL:
-						if (!pluginMap.has('bridge')) {
-							const debridge = new deBridgeProvider([bscProvider, solanaProvider], 56, 7565164);
-							const bridgePlugin = new BridgePlugin();
-							await bridgePlugin.initialize({
-								supportedChains: ['bnb', 'ethereum', 'solana'],
-								providers: [debridge],
-							});
-							pluginMap.set('bridge', bridgePlugin);
-						}
-						break;
-
-					case ToolName.TOKEN_TOOL:
-						if (!pluginMap.has('token')) {
-							const tokenPlugin = new TokenPlugin();
-							await tokenPlugin.initialize({
-								defaultChain: 'bnb',
-								providers: [birdeyeProvider, alchemyProvider],
-								supportedChains: ['solana', 'bnb', 'ethereum'],
-							});
-							pluginMap.set('token', tokenPlugin);
-						}
-						break;
-
-					case ToolName.WALLET_TOOL:
-						if (!pluginMap.has('wallet')) {
-							const walletPlugin = new WalletPlugin();
-							await walletPlugin.initialize({
-								defaultChain: 'bnb',
-								providers: [birdeyeProvider, alchemyProvider],
-								supportedChains: ['bnb', 'solana', 'ethereum'],
-							});
-							pluginMap.set('wallet', walletPlugin);
-						}
-						break;
-				}
-			} catch (error) {
-				console.log(`Error initializing ${tool.name}:`, error);
-			}
+	
+		let tools: any[] = [];
+		let plugins: any[] = [];
+		for (const tool of toolsWithPlugins) {
+			tools.push(tool.tool);
+			plugins.push(tool.plugin);
 		}
 
 		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
 			try {
 				const llm = new N8nLLM(await getChatModel(this));
 				const memory = (await getOptionalMemory(this)) as BaseChatMemory;
+
 				const n8nOptions = this.getNodeParameter('options', itemIndex, {}) as {
 					systemMessage?: string;
 					maxIterations?: number;
@@ -402,7 +329,7 @@ export class BinkAgentNode implements INodeType {
 				const wallet = new Wallet(
 					{
 						seedPhrase:
-							(credentials.walletMnemonic as string) ||
+							(walletCredentials.mnemonic as string) ||
 							'test test test test test test test test test test test test',
 						index: 0,
 					},
@@ -425,7 +352,7 @@ export class BinkAgentNode implements INodeType {
 				);
 
 				// Register all initialized plugins
-				for (const plugin of pluginMap.values()) {
+				for (const plugin of plugins) {
 					await binkAgent.registerPlugin(plugin);
 				}
 
@@ -440,9 +367,16 @@ export class BinkAgentNode implements INodeType {
 					throw new NodeOperationError(this.getNode(), 'The "text" parameter is empty.');
 				}
 
-				const response = await binkAgent.execute({ input });
-
-				if (memory && outputParser) {
+				let response;
+				if (memory) {
+					const chatHistory = await memory.loadMemoryVariables({});
+					response = await binkAgent.execute(input, chatHistory);
+				} else {
+					response = await binkAgent.execute(input);
+				}
+				
+			
+				if (outputParser) {
 					const parsedOutput = jsonParse<{ output: Record<string, unknown> }>(
 						response.output as string,
 					);
