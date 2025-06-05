@@ -1,19 +1,19 @@
 {
   "name": "n8n-nodes-binkai",
-  "version": "1.5.1",
+  "version": "1.6.2",
   "description": "A n8n module that exposes BinkAI, an library that can make transaction related web3, blockchain such as swap, transfer, bridge, get balance wallet, etc.",
   "keywords": [
     "n8n-community-node-package"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/binkai/n8n-nodes-binkai",
+  "homepage": "https://bink.ai",
   "author": {
     "name": "binkai",
     "email": "npm@bink.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/binkai/n8n-nodes-binkai.git"
+    "url": "https://github.com/Bink-AI/n8n-nodes-binkai"
   },
   "engines": {
     "node": ">=18.10",
@@ -27,8 +27,7 @@
     "dev": "tsc --watch",
     "format": "prettier nodes --write",
     "lint": "eslint nodes package.json",
-    "lintfix": "eslint nodes package.json --fix",
-    "prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json"
+    "lintfix": "eslint nodes package.json --fix"
   },
   "files": [
     "dist"
