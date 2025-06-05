@@ -4,7 +4,7 @@ import {
 	INodeProperties,
 } from 'n8n-workflow';
 
-const tokenProviderProperties = [
+const searchProviderProperties = [
 	{
 		displayName: 'Gemini API Key',
 		name: 'geminiApiKey',
@@ -20,7 +20,7 @@ export class BinkSearchCredentials implements ICredentialType {
 	name = 'binkaiSearchCredentials';
 	displayName = 'Bink AI Search Gemini Credentials';
 	properties: INodeProperties[] = [
-		...tokenProviderProperties,
+		...searchProviderProperties,
 	];
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
