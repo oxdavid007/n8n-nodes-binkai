@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-binkai",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "A n8n module that exposes BinkAI, an library that can make transaction related web3, blockchain such as swap, transfer, bridge, get balance wallet, etc.",
   "keywords": [
     "n8n-community-node-package"
