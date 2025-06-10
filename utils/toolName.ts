@@ -3,6 +3,8 @@ export enum OnchainToolName {
 	BRIDGE_TOOL = 'n8n_bridge',
 	TOKEN_TOOL = 'n8n_token',
 	WALLET_TOOL = 'n8n_wallet',
+	TRANSFER_TOOL = 'n8n_transfer',
+	STAKING_TOOL = 'n8n_staking',
 }
 
 export enum ToolName {

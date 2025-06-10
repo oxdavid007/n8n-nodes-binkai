@@ -79,7 +79,7 @@ export class ToolSwap implements INodeType {
 			categories: ['AI'],
 			subcategories: {
 				AI: ['Tools'],
-				Tools: ['Other Tools'],
+				Tools: ['Bink AI Tools'],
 			},
 			resources: {
 				primaryDocumentation: [
@@ -118,6 +118,7 @@ export class ToolSwap implements INodeType {
 		credentials: [
 			{
 				name: 'binkaiCredentialsApi',
+				displayName: 'Binkai Swap RPC URLs',
 				required: true,
 			},
 		],
@@ -146,38 +147,22 @@ export class ToolSwap implements INodeType {
 			SOL: baseCredentials.solRpcUrl as string,
 		};
 
-		let bscProvider;
-		let solanaProvider;
+		const providers = {
+			bsc: new ethers.JsonRpcProvider(RPC_URLS.BNB),
+			solana: new Connection(RPC_URLS.SOL),
+		};
 
+		const protocolMap = {
+			kyber: () => new KyberProvider(providers.bsc, 56),
+			oku: () => new OkuProvider(providers.bsc, 56),
+			thena: () => new ThenaProvider(providers.bsc, 56),
+			jupiter: () => new JupiterProvider(providers.solana),
+		};
 
-		if (bnbSwapProtocols?.length) {
-			bscProvider = new ethers.JsonRpcProvider(RPC_URLS.BNB);
-		}
-		if (solanaSwapProtocols?.length) {
-			solanaProvider = new Connection(RPC_URLS.SOL);
-		}
-
-		let swapProtocols: any[] = [];
-		if (bnbSwapProtocols.includes('kyber')) {
-			const kyber = new KyberProvider(bscProvider, 56);
-			swapProtocols.push(kyber);
-		}
-		if (bnbSwapProtocols.includes('jupiter')) {
-			const jupiter = new JupiterProvider(solanaProvider);
-			swapProtocols.push(jupiter);
-		}
-		if (bnbSwapProtocols.includes('oku')) {
-			const oku = new OkuProvider(bscProvider, 56);
-			swapProtocols.push(oku);
-		}
-		if (bnbSwapProtocols.includes('thena')) {
-			const thena = new ThenaProvider(bscProvider, 56);
-			swapProtocols.push(thena);
-		}
-		if (solanaSwapProtocols.includes('jupiter')) {
-			const jupiter = new JupiterProvider(solanaProvider);
-			swapProtocols.push(jupiter);
-		}
+		const swapProtocols = [
+			...bnbSwapProtocols.filter(protocol => protocol in protocolMap).map(protocol => protocolMap[protocol as keyof typeof protocolMap]()),
+			...solanaSwapProtocols.filter(protocol => protocol in protocolMap).map(protocol => protocolMap[protocol as keyof typeof protocolMap]())
+		];
 	
 		const swapPlugin = new SwapPlugin();
 		await swapPlugin.initialize({

@@ -70,14 +70,16 @@ export class N8nBinkAgent extends BaseAgent {
 	}
 
 	protected async createToolsAgentExecutor(): Promise<AgentExecutor> {
-		const defaultSystemPrompt = `You are a helpful assistant that can help with tasks related to the BinkAI platform.`;
+		const defaultSystemPrompt = `You are a BINK AI agent. You are able to perform bridge and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a bridge.`;
 
 		const filteredTools = this.tools.filter(
 			(tool) =>
 				tool.name !== OnchainToolName.SWAP_TOOL &&
 				tool.name !== OnchainToolName.BRIDGE_TOOL &&
 				tool.name !== OnchainToolName.TOKEN_TOOL &&
-				tool.name !== OnchainToolName.WALLET_TOOL,
+				tool.name !== OnchainToolName.WALLET_TOOL &&
+				tool.name !== OnchainToolName.TRANSFER_TOOL && 
+				tool.name !== OnchainToolName.STAKING_TOOL,
 		);
 
 		if (this.memory && this.memory.chatHistory) {
@@ -95,7 +97,7 @@ export class N8nBinkAgent extends BaseAgent {
 			llm: this.getModel().getLangChainLLM(),
 			tools: filteredTools,
 			prompt: ChatPromptTemplate.fromMessages([
-				['system', `${this.config.systemPrompt ?? defaultSystemPrompt}`],
+				['system', `${this.n8nOptions.systemMessage ?? defaultSystemPrompt}`],
 				new MessagesPlaceholder('chat_history'),
 				['human', '{input}'],
 				new MessagesPlaceholder('agent_scratchpad'),
@@ -123,7 +125,9 @@ export class N8nBinkAgent extends BaseAgent {
 				tool.name !== OnchainToolName.SWAP_TOOL &&
 				tool.name !== OnchainToolName.BRIDGE_TOOL &&
 				tool.name !== OnchainToolName.TOKEN_TOOL &&
-				tool.name !== OnchainToolName.WALLET_TOOL,
+				tool.name !== OnchainToolName.WALLET_TOOL &&
+				tool.name !== OnchainToolName.STAKING_TOOL &&
+				tool.name !== OnchainToolName.TRANSFER_TOOL,
 		);
 
 		const agentExecutor = await PlanAndExecuteAgentExecutor.fromLLMAndTools({

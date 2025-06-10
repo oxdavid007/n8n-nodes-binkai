@@ -22,6 +22,8 @@ import { ToolToken } from '../nodes/tools/ToolToken/ToolToken.node';
 import { ToolSwap } from '../nodes/tools/ToolSwap/ToolSwap.node';
 import { ToolWallet } from '../nodes/tools/ToolWallet/ToolWallet.node';
 import { ToolBridge } from '../nodes/tools/ToolBridge/ToolBridge.node';
+import { ToolStaking } from '../nodes/tools/ToolStaking/ToolStaking.node';
+import { ToolTransfer } from '../nodes/tools/ToolTransfer/ToolTransfer.node';
 
 function hasMethods<T>(obj: unknown, ...methodNames: Array<string | symbol>): obj is T {
 	return methodNames.every(
@@ -241,6 +243,11 @@ export const getConnectedTools = async (
 			case OnchainToolName.BRIDGE_TOOL: {
 				const toolBridge = new ToolBridge();
 				plugin = await toolBridge.getBridgePlugin();
+				break;
+			}
+			case OnchainToolName.STAKING_TOOL: {
+				const toolStaking = new ToolStaking();
+				plugin = await toolStaking.getStakingPlugin();
 				break;
 			}
 		}

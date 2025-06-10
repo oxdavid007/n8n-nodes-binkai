@@ -54,7 +54,7 @@ export class ToolSearch implements INodeType {
 			categories: ['AI'],
 			subcategories: {
 				AI: ['Tools'],
-				Tools: ['Search Tools'],
+				Tools: ['Bink AI Tools'],
 			},
 			resources: {
 				primaryDocumentation: [
