@@ -69,7 +69,7 @@ export class ToolBridge implements INodeType {
 			categories: ['AI'],
 			subcategories: {
 				AI: ['Tools'],
-				Tools: ['Other Tools'],
+				Tools: ['Bink AI Tools'],
 			},
 			resources: {
 				primaryDocumentation: [

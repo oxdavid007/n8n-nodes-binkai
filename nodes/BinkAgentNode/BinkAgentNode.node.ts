@@ -261,8 +261,10 @@ export class BinkAgentNode implements INodeType {
 		credentials: [
 			{
 				name: 'binkaiCredentialsApi',
+				displayName: 'Binkai API Credentials',
 				required: true,
 			},
+		
 			
 		],
 	};
@@ -275,7 +277,6 @@ export class BinkAgentNode implements INodeType {
 		const toolsWithPlugins = (await getTools(this)) as Array<{ tool: DynamicStructuredTool | Tool, plugin?: any }>;
 		// Get credentials
 		const baseCredentials = await this.getCredentials('binkaiCredentialsApi');
-
 		// Get RPC URLs from credentials
 		const RPC_URLS = {
 			BNB: baseCredentials.bnbRpcUrl as string,
@@ -322,7 +323,6 @@ export class BinkAgentNode implements INodeType {
 					outputParser,
 					{
 						temperature: 0.5,
-						systemPrompt: SYSTEM_MESSAGE,
 					},
 					wallet,
 					networks,
@@ -346,12 +346,30 @@ export class BinkAgentNode implements INodeType {
 				}
 
 				let response;
+				let chatHistoryForAgent: { chat_history: any[]; [key: string]: any } = { chat_history: [] };
+				
 				if (memory) {
-					const chatHistory = await memory.loadMemoryVariables({});
-					response = await binkAgent.execute(input, chatHistory);
-				} else {
-					response = await binkAgent.execute(input);
+					try {
+						const memoryVariables = await memory.loadMemoryVariables({});
+						// Extract chat history from memory variables with multiple possible keys
+						const chatHistory = memoryVariables.chat_history || 
+										   memoryVariables.history || 
+										   memoryVariables.messages || 
+										   [];
+						
+						// Ensure it's an array
+						chatHistoryForAgent = {
+							chat_history: Array.isArray(chatHistory) ? chatHistory : [],
+							...memoryVariables
+						};
+					} catch (error) {
+						console.log('Error loading memory variables:', error);
+						// Fallback to empty chat history if memory loading fails
+						chatHistoryForAgent = { chat_history: [] };
+					}
 				}
+				
+				response = await binkAgent.execute(input, chatHistoryForAgent.chat_history);
 				
 			
 				if (outputParser) {
@@ -371,7 +389,6 @@ export class BinkAgentNode implements INodeType {
 						'agent_scratchpad',
 					),
 				};
-
 				returnData.push(itemResult);
 			} catch (error) {
 				console.log('Error processing item:', error);

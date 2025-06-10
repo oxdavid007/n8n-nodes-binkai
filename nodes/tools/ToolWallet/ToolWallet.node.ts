@@ -15,6 +15,7 @@ import { WalletPlugin } from '@binkai/wallet-plugin';
 import { SupportChain } from '../../../utils/networks';
 import { AlchemyProvider } from '@binkai/alchemy-provider';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
+import { BnbProvider, SolanaProvider } from '@binkai/rpc-provider';
 
 export class ToolWallet implements INodeType {
 	description: INodeTypeDescription = {
@@ -32,7 +33,7 @@ export class ToolWallet implements INodeType {
 			categories: ['AI'],
 			subcategories: {
 				AI: ['Tools'],
-				Tools: ['Other Tools'],
+				Tools: ['Bink AI Tools'],
 			},
 			resources: {
 				primaryDocumentation: [
@@ -63,6 +64,7 @@ export class ToolWallet implements INodeType {
 		credentials: [
 			{
 				name: 'binkaiTokenCredentials',
+				displayName: 'Binkai Wallet Credentials',
 				required: true,
 			},
 		]
@@ -76,15 +78,15 @@ export class ToolWallet implements INodeType {
 
 	async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
 		this.logger.info('Supplying data for ToolWallet for BinkAIs');
-
-		const tokenCredentials = await this.getCredentials('binkaiTokenCredentials');
-		const birdeyeApiKey = tokenCredentials.birdeyeApiKey as string;
-		const alchemyApiKey = tokenCredentials.alchemyApiKey as string;
+		const walletCredentials = await this.getCredentials('binkaiTokenCredentials');
+		const birdeyeApiKey = walletCredentials.birdeyeApiKey as string;
+		const alchemyApiKey = walletCredentials.alchemyApiKey as string;
 
 
 		const birdeyeProvider = new BirdeyeProvider({ apiKey: birdeyeApiKey });
 		const alchemyProvider = new AlchemyProvider({ apiKey: alchemyApiKey });
-
+		
+		
 		const walletPlugin = new WalletPlugin();
 		await walletPlugin.initialize({
 			defaultChain: SupportChain.BNB,

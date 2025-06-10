@@ -35,7 +35,7 @@ export class ToolAnalyze implements INodeType {
 			categories: ['AI'],
 			subcategories: {
 				AI: ['Tools'],
-				Tools: ['Analyze Tools'],
+				Tools: ['Bink AI Tools'],
 			},
 			resources: {
 				primaryDocumentation: [
@@ -119,6 +119,7 @@ export class ToolAnalyze implements INodeType {
 		credentials: [
 			{
 				name: 'binkaiSearchCredentials',
+				displayName: 'Binkai Search Gemini API Key',
 				required: true,
 			},
 		],
